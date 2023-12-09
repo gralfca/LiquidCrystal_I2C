@@ -4,7 +4,11 @@
 
 #include <inttypes.h>
 #include "Print.h" 
+#ifdef __LiquidCrystal_I2C_UseBitbang__
+#include <BitBang_I2C.h>
+#else
 #include <Wire.h>
+#endif
 
 // commands
 #define LCD_CLEARDISPLAY 0x01
@@ -126,6 +130,7 @@ private:
   uint8_t _cols;
   uint8_t _rows;
   uint8_t _backlightval;
+  BBI2C bbi2c;
 };
 
 #endif
