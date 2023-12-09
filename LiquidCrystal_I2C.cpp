@@ -23,7 +23,7 @@ inline void LiquidCrystal_I2C::write(uint8_t value) {
 #endif
 
 #ifdef __LiquidCrystal_I2C_UseBitbang__
-#include "BitBang_I2C.h"
+#include <BitBang_I2C.h>
 #else
 #include "Wire.h"
 #endif
@@ -284,7 +284,8 @@ void LiquidCrystal_I2C::write4bits(uint8_t value) {
 }
 #ifdef __LiquidCrystal_I2C_UseBitbang__
 void LiquidCrystal_I2C::expanderWrite(uint8_t _data){
-	I2CWrite(&bbi2c, _Addr, (int)(_data) | _backlightval, 1);
+	uint8_t _data_with_backlight = (int)(_data) | _backlightval;
+	I2CWrite(&bbi2c, _Addr, &_data_with_backlight, 1);
 }
 #else
 void LiquidCrystal_I2C::expanderWrite(uint8_t _data){                                        

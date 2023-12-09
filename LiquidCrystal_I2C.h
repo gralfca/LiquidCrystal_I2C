@@ -2,6 +2,10 @@
 #ifndef LiquidCrystal_I2C_h
 #define LiquidCrystal_I2C_h
 
+#define __LiquidCrystal_I2C_UseBitbang__
+#define LCD_BBI2C_SDA 2
+#define LCD_BBI2C_SCL 16
+
 #include <inttypes.h>
 #include "Print.h" 
 #ifdef __LiquidCrystal_I2C_UseBitbang__
