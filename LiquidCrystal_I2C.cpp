@@ -24,10 +24,128 @@ inline void LiquidCrystal_I2C::write(uint8_t value)
 
 #endif
 
-#ifdef __LiquidCrystal_I2C_UseBitbang__
-#include <BitBang_I2C.h>
-#else
+#ifndef __LiquidCrystal_I2C_UseBitbang__
 #include "Wire.h"
+#endif
+
+#ifdef __LiquidCrystal_I2C_UseBitbang__
+
+#define MY_I2C_SDA 14
+#define MY_I2C_SCL 15
+#define MY_I2C_OK 0
+#define MY_I2C_ERROR 1
+#define MY_I2C_DELAY 4
+#define MY_I2C_DELAY_HIGH 20
+#define MY_I2C_DELAY_HOLD 2
+#define MY_I2C_DELAY_FRAME 100
+#define MY_I2C_MAX_ACK_RETRIES 20
+
+
+#define i2c_wait(a) delayMicroseconds(a)
+/*
+void i2c_wait(long waiting_micros){
+  long x = micros();
+  long y;
+  do {
+    y = micros();
+  }while (y-x < waiting_micros);
+}
+*/
+void i2c_start(){
+  i2c_wait(MY_I2C_DELAY);
+  pinMode(MY_I2C_SDA, OUTPUT_OPEN_DRAIN);
+  digitalWrite(MY_I2C_SDA, LOW);
+  i2c_wait(MY_I2C_DELAY_HOLD);
+  pinMode(MY_I2C_SCL, OUTPUT_OPEN_DRAIN);
+  digitalWrite(MY_I2C_SCL, LOW);
+  i2c_wait(MY_I2C_DELAY);
+  i2c_wait(MY_I2C_DELAY);
+}
+
+void i2c_stop(){
+  digitalWrite(MY_I2C_SCL, HIGH);
+  i2c_wait(MY_I2C_DELAY);
+  digitalWrite(MY_I2C_SDA, HIGH);
+  pinMode(MY_I2C_SDA, OUTPUT_OPEN_DRAIN);
+  i2c_wait(MY_I2C_DELAY_HOLD);
+  digitalWrite(MY_I2C_SDA, HIGH);
+  i2c_wait(MY_I2C_DELAY_FRAME);
+  i2c_wait(MY_I2C_DELAY_FRAME);
+}
+
+void i2c_write_bit(uint8_t b){
+  pinMode(MY_I2C_SDA, OUTPUT_OPEN_DRAIN);
+  digitalWrite(MY_I2C_SDA, b?HIGH:LOW); 
+  i2c_wait(MY_I2C_DELAY_HOLD);
+  digitalWrite(MY_I2C_SCL, HIGH);
+  i2c_wait(MY_I2C_DELAY_HIGH);
+  digitalWrite(MY_I2C_SCL, LOW);
+  i2c_wait(MY_I2C_DELAY);
+}
+
+uint8_t i2c_read_bit(){
+  digitalWrite(MY_I2C_SDA, HIGH);
+  pinMode(MY_I2C_SDA, INPUT);
+  i2c_wait(MY_I2C_DELAY_HOLD);
+  digitalWrite(MY_I2C_SCL, HIGH);
+  i2c_wait(MY_I2C_DELAY_HIGH);
+  uint8_t v = digitalRead(MY_I2C_SDA);
+  digitalWrite(MY_I2C_SCL, LOW);    
+  i2c_wait(MY_I2C_DELAY);
+  return v;
+}
+
+uint8_t i2c_read_ack(){
+  pinMode(MY_I2C_SDA, INPUT);
+  digitalWrite(MY_I2C_SCL, HIGH);
+  i2c_wait(MY_I2C_DELAY_HIGH);
+  digitalWrite(MY_I2C_SCL, LOW);    
+  uint8_t v;
+  int count = MY_I2C_MAX_ACK_RETRIES;
+  do {
+    v = digitalRead(MY_I2C_SDA);
+    count --;
+  } while ( !v || count);
+  i2c_wait(MY_I2C_DELAY);
+  if (count == MY_I2C_MAX_ACK_RETRIES) return MY_I2C_ERROR;
+  return MY_I2C_OK;
+}
+
+int i2c_write_byte(uint8_t b){
+  for (int i = 0; i < 8; i++, b<<=1){
+    i2c_write_bit(b & 0x80);  
+  }
+  return (i2c_read_ack() == 0);
+}
+
+int i2c_write_sequence (uint8_t address, uint8_t sequence_length, uint8_t *sequence){
+  address <<= 1;
+  i2c_start();
+  //if (i2c_write_byte(address)!= MY_I2C_OK) return MY_I2C_ERROR;
+  i2c_write_byte(address);
+  i2c_wait(MY_I2C_DELAY_FRAME);
+  while(sequence_length){
+    //if (i2c_write_byte (*(sequence++)) != MY_I2C_OK) return MY_I2C_ERROR;
+    i2c_write_byte (*(sequence++));
+    i2c_wait(MY_I2C_DELAY_FRAME);
+    sequence_length--;
+  }
+  i2c_stop();
+  return MY_I2C_OK;
+}
+
+void i2c_init(){
+  pinMode(MY_I2C_SCL, OUTPUT_OPEN_DRAIN);
+  digitalWrite(MY_I2C_SDA, HIGH);
+  i2c_wait(MY_I2C_DELAY_HOLD);
+  pinMode(MY_I2C_SDA, OUTPUT_OPEN_DRAIN);
+  digitalWrite(MY_I2C_SCL, HIGH);
+  i2c_start();
+  //if (i2c_write_byte(address)!= MY_I2C_OK) return MY_I2C_ERROR;
+  i2c_write_byte(0x02);
+  i2c_stop();
+}
+
 #endif
 
 
@@ -57,6 +175,7 @@ LiquidCrystal_I2C::LiquidCrystal_I2C(uint8_t lcd_Addr, uint8_t lcd_cols,
     _cols = lcd_cols;
     _rows = lcd_rows;
     _backlightval = LCD_NOBACKLIGHT;
+    i2c_init();
 }
 
 void LiquidCrystal_I2C::oled_init()
@@ -74,12 +193,6 @@ void LiquidCrystal_I2C::init()
 #ifdef __LiquidCrystal_I2C_UseBitbang__
 void LiquidCrystal_I2C::init_priv()
 {
-    bbi2c.bWire = 0;		// use bit banging
-    pinMode(LCD_BBI2C_SDA, OUTPUT);
-    pinMode(LCD_BBI2C_SCL, OUTPUT);
-    bbi2c.iSDA = LCD_BBI2C_SDA;
-    bbi2c.iSCL = LCD_BBI2C_SCL;
-    I2CInit(&bbi2c, 100000);	//100K clock
     _displayfunction = LCD_4BITMODE | LCD_1LINE | LCD_5x8DOTS;
     begin(_cols, _rows);
 }
@@ -319,7 +432,7 @@ void LiquidCrystal_I2C::write4bits(uint8_t value)
 void LiquidCrystal_I2C::expanderWrite(uint8_t _data)
 {
     uint8_t _data_with_backlight = (int) (_data) | _backlightval;
-    I2CWrite(&bbi2c, _Addr, &_data_with_backlight, 1);
+    i2c_write_sequence(_Addr, 1, &_data_with_backlight);
 }
 #else
 void LiquidCrystal_I2C::expanderWrite(uint8_t _data)

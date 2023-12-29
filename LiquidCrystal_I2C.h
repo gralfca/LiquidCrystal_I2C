@@ -3,14 +3,10 @@
 #define LiquidCrystal_I2C_h
 
 #define __LiquidCrystal_I2C_UseBitbang__
-#define LCD_BBI2C_SDA 2
-#define LCD_BBI2C_SCL 16
 
 #include <inttypes.h>
 #include "Print.h"
-#ifdef __LiquidCrystal_I2C_UseBitbang__
-#include <BitBang_I2C.h>
-#else
+#ifndef __LiquidCrystal_I2C_UseBitbang__
 #include <Wire.h>
 #endif
 
@@ -137,7 +133,6 @@ class LiquidCrystal_I2C:public Print {
     uint8_t _cols;
     uint8_t _rows;
     uint8_t _backlightval;
-    BBI2C bbi2c;
 };
 
 #endif
